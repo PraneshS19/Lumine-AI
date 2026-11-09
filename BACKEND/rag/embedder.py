@@ -1,11 +1,12 @@
 # rag/embedder.py
+import os
 import requests
 from typing import List
 
 class OllamaEmbedder:
-    def __init__(self, model="nomic-embed-text"):
-        self.model = model
-        self.base_url = "http://localhost:11434/api"
+    def __init__(self, model=None):
+        self.model = model or os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text:latest")
+        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/") + "/api"
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple texts"""

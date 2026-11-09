@@ -37,7 +37,7 @@ The backend also contains ChromaDB/RAG helper modules; the active API in
 - Python 3.11 (the version used for local verification)
 - Node.js 18 or newer and npm
 - [Ollama](https://ollama.com/) installed and running
-- Enough memory/disk space for the Ollama models you choose
+- Enough memory/disk space for the configured Ollama models
 
 ## Setup and run
 
@@ -68,7 +68,10 @@ The API listens on `http://127.0.0.1:8000`. Check
 `http://127.0.0.1:8000/health` to see whether both configured Ollama models
 are available.
 
-To select other installed Ollama models, edit `BACKEND/.env`:
+The active chat, document Q&A, summarization, and quiz routes share the model
+configured by `OLLAMA_LLM_MODEL`. Its default is `mistral:7b-instruct`. Edit
+`BACKEND/.env` only when intentionally selecting a different Ollama generation
+model:
 
 ```dotenv
 OLLAMA_BASE_URL=http://localhost:11434
@@ -76,8 +79,7 @@ OLLAMA_EMBED_MODEL=nomic-embed-text:latest
 OLLAMA_LLM_MODEL=mistral:7b-instruct
 ```
 
-`OLLAMA_BASE_URL` is used by the RAG helper modules; the current active API
-uses the local Ollama URL `http://localhost:11434`.
+`OLLAMA_BASE_URL` is used by the API and RAG helper modules.
 
 ### 2. Start the frontend
 
@@ -124,40 +126,30 @@ on the selected models and evaluation data. Do not treat successful startup
 or endpoint smoke checks as a general model-quality benchmark.
 
 Run the reproducible local model smoke checks after installing the configured
-Ollama models. To reproduce the results below, set the model environment
-variables before running the script:
+Ollama models. The script uses `OLLAMA_LLM_MODEL` and `OLLAMA_EMBED_MODEL`
+from `BACKEND/.env`, including the Mistral default:
 
 ```powershell
 cd BACKEND
-$env:OLLAMA_EMBED_MODEL = "nomic-embed-text:latest"
-$env:OLLAMA_LLM_MODEL = "qwen3.5:4b"
+.\.venv\Scripts\python.exe -m unittest discover -s tests
 .\.venv\Scripts\python.exe evaluate_models.py
 ```
+
+The unit tests mock the Ollama generation endpoint to verify configured model
+selection and the missing-model installation guidance. The evaluation script
+performs actual local Ollama inference and requires both configured models.
 
 This small check verifies that Ollama can generate a known arithmetic answer
 and that the embedding model ranks a matching document above an unrelated
 one. It is a functional smoke test, not a statistically meaningful accuracy
 benchmark.
 
-### Recorded smoke-test results
-
-Run on 2026-11-09 with `nomic-embed-text:latest` and `qwen3.5:4b`:
-
-| Check | Result |
-|---|---|
-| Retrieval top-1 on the single France/Canada example | PASS; France document ranked first |
-| Cosine similarity (matching / unrelated document) | 0.8931 / 0.6665 |
-| Generation arithmetic check | PASS; returned `42` |
-| Test size | 1 retrieval query and 1 generation prompt |
-| Backend document workflow | PASS; TXT upload, embedding creation, and context-backed query returned Paris |
-
 These are functional checks only. They are not representative model-quality,
-accuracy, or general RAG benchmark scores. The project defaults (`mistral:7b-instruct`
-and `nomic-embed-text:latest`) were not both installed in the evaluation
-environment. The local model smoke evaluation explicitly selected the
-installed Qwen language model and Nomic embedding model. The backend document
-workflow was separately verified with the installed Gemma 3 model and Nomic
-embeddings.
+accuracy, or general RAG benchmark scores. Mistral inference results must be
+recorded only after running the checks with the configured Mistral model; do
+not substitute another model and report its results as Mistral evaluation.
+No real Mistral inference or benchmark results are currently recorded; model
+selection and missing-model handling are covered by mocked unit tests.
 
 ## Data and privacy
 

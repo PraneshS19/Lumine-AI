@@ -1,5 +1,25 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+const createApiError = async (response: Response, action: string) => {
+  const body = await response.text();
+  let detail = `${response.status} ${response.statusText}`;
+
+  if (body) {
+    try {
+      const payload = JSON.parse(body);
+      if (typeof payload.detail === 'string') {
+        detail = payload.detail;
+      } else if (typeof payload.message === 'string') {
+        detail = payload.message;
+      }
+    } catch {
+      detail = body;
+    }
+  }
+
+  return new Error(`${action} failed: ${detail}`);
+};
+
 export const uploadFile = async (file: File, sessionId: string) => {
   const formData = new FormData();
   formData.append('file', file);
@@ -11,7 +31,7 @@ export const uploadFile = async (file: File, sessionId: string) => {
   });
 
   if (!response.ok) {
-    throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+    throw await createApiError(response, 'Upload');
   }
 
   return response.json();
@@ -28,7 +48,7 @@ export const queryBackend = async (query: string, sessionId: string) => {
   });
 
   if (!response.ok) {
-    throw new Error(`Query failed: ${response.status} ${response.statusText}`);
+    throw await createApiError(response, 'Query');
   }
 
   return response.json();
@@ -44,7 +64,7 @@ export const summarizeText = async (text: string, sessionId: string) => {
   });
 
   if (!response.ok) {
-    throw new Error(`Summarization failed: ${response.status} ${response.statusText}`);
+    throw await createApiError(response, 'Summarization');
   }
 
   return response.json();
@@ -60,7 +80,7 @@ export const generateQuiz = async (sessionId: string) => {
   });
 
   if (!response.ok) {
-    throw new Error(`Quiz generation failed: ${response.status} ${response.statusText}`);
+    throw await createApiError(response, 'Quiz generation');
   }
 
   return response.json();

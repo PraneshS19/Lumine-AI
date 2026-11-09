@@ -1,7 +1,7 @@
 # Ollama Configuration
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=mistral
-OLLAMA_EMBED_MODEL=nomic-embed-text
+OLLAMA_LLM_MODEL=mistral:7b-instruct
+OLLAMA_EMBED_MODEL=nomic-embed-text:latest
 
 # Database Configuration
 CHROMA_DIR=./db/chroma

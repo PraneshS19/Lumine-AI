@@ -111,7 +111,7 @@ const LumineAI = () => {
       console.error(err);
       setMessages(prev => [...prev, { 
         role: "assistant", 
-        content: "Error: Backend not responding. Make sure server is running on http://localhost:8000"
+        content: err instanceof Error ? err.message : "The request failed."
       }]);
     }
   };
@@ -141,7 +141,7 @@ const LumineAI = () => {
       console.error(err);
       setMessages(prev => [...prev.slice(0, -1), { 
         role: "assistant", 
-        content: "❌ Error generating summary",
+        content: err instanceof Error ? err.message : "Summary generation failed.",
         type: 'summary'
       }]);
     }
@@ -165,7 +165,7 @@ const LumineAI = () => {
       console.error(err);
       setMessages(prev => [...prev.slice(0, -1), { 
         role: "assistant", 
-        content: "🧠 QUIZ (Sample):\n\n1. What is machine learning?\n   A) Computers learning from data\n   B) Manual programming\n   C) Hardware optimization\n   D) Network configuration\n   Correct: A",
+        content: err instanceof Error ? err.message : "Quiz generation failed.",
         type: 'quiz'
       }]);
     }

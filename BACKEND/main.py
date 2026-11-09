@@ -29,12 +29,13 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 EMBEDDING_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text:latest")
 LLM_MODEL = os.getenv("OLLAMA_LLM_MODEL", "mistral:7b-instruct")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 
 print(f"🎯 Using models - Embedding: {EMBEDDING_MODEL}, LLM: {LLM_MODEL}")
 
 def check_ollama_models():
     try:
-        response = requests.get("http://localhost:11434/api/tags", timeout=10)
+        response = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=10)
         if response.status_code == 200:
             models = response.json().get('models', [])
             model_names = [model['name'] for model in models]
@@ -96,7 +97,7 @@ def get_embedding(text: str):
     try:
         print(f"🔍 Getting embedding for text length: {len(text)}")
         response = requests.post(
-            "http://localhost:11434/api/embeddings",
+            f"{OLLAMA_BASE_URL}/api/embeddings",
             json={
                 "model": EMBEDDING_MODEL,
                 "prompt": text
@@ -116,12 +117,12 @@ def get_embedding(text: str):
         print(f"❌ Embedding error: {e}")
         return None
 
-def generate_response(prompt: str):
+def generate_response(prompt: str) -> str:
     try:
         print(f"🤖 Generating response with model: {LLM_MODEL}")
         
         response = requests.post(
-            "http://localhost:11434/api/generate",
+            f"{OLLAMA_BASE_URL}/api/generate",
             json={
                 "model": LLM_MODEL,
                 "prompt": prompt,
@@ -133,18 +134,43 @@ def generate_response(prompt: str):
             },
             timeout=120
         )
-        
-        if response.status_code == 200:
-            result = response.json()
-            answer = result.get("response", "").strip()
-            print(f"🤖 Generated answer length: {len(answer)}")
-            return answer
-        else:
-            print(f"❌ LLM API error: {response.status_code} - {response.text}")
-            return f"I encountered an error while generating a response. Please try again."
-    except Exception as e:
-        print(f"❌ LLM generation error: {e}")
-        return f"Error generating response: {str(e)}"
+    except requests.exceptions.ConnectionError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Cannot connect to Ollama at {OLLAMA_BASE_URL}. Start Ollama and try again.",
+        ) from exc
+    except requests.exceptions.Timeout as exc:
+        raise HTTPException(
+            status_code=504,
+            detail="The Ollama generation request timed out. Try again.",
+        ) from exc
+
+    if response.status_code == 404:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Configured Ollama model '{LLM_MODEL}' is not installed. "
+                f"Install it with: ollama pull {LLM_MODEL}"
+            ),
+        )
+
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as exc:
+        print(f"❌ LLM API error: {response.status_code} - {response.text}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Ollama generation failed with status {response.status_code}.",
+        ) from exc
+
+    answer = response.json().get("response", "").strip()
+    if not answer:
+        raise HTTPException(
+            status_code=502,
+            detail="Ollama returned an empty response.",
+        )
+    print(f"🤖 Generated answer length: {len(answer)}")
+    return answer
 
 def cosine_similarity(vec1, vec2):
     if not vec1 or not vec2:
@@ -309,6 +335,8 @@ Please provide a helpful answer:"""
             "context_used": len(top_results) > 0
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Query error: {str(e)}")
         import traceback
@@ -340,6 +368,8 @@ Summary:"""
             "summary_length": len(summary)
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Summarization error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Summarization failed: {str(e)}")
@@ -392,6 +422,8 @@ Quiz:"""
             "source_chunks": len(session_chunks)
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"❌ Quiz generation error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Quiz generation failed: {str(e)}")
